@@ -71,6 +71,7 @@ const pLogin=async()=>`<form class="card" data-f="login" style="max-width:420px;
 <label for="e">Email</label><input id="e" name="e" type="email" required autocomplete="username">
 <label for="p">Parol</label><input id="p" name="p" type="password" required autocomplete="current-password">
 <p class="err" role="alert"></p><button class="btn">Kirish</button>
+<p><a href="#forgot">Parolni unutdingizmi?</a></p>
 <p>Hisobingiz yoʻqmi? <a href="#register">Roʻyxatdan oʻting</a></p></form>`;
 
 const pReg=async()=>`<form class="card" data-f="reg" style="max-width:420px;margin:24px auto"><h1>Roʻyxatdan oʻtish</h1>
@@ -81,6 +82,16 @@ const pReg=async()=>`<form class="card" data-f="reg" style="max-width:420px;marg
 <p class="err" role="alert"></p><button class="btn">Roʻyxatdan oʻtish</button>
 <p>Hisobingiz bormi? <a href="#login">Kirish</a></p>
 <p style="color:var(--m);font-size:.9rem">Administrator hisobi oʻzi yaratilmaydi. Tarbiyachi va ota-onani administrator guruh va farzandga bogʻlaydi.</p></form>`;
+
+const pForgot=async()=>`<form class="card" data-f="forgot" style="max-width:420px;margin:24px auto"><h1>Parolni tiklash</h1>
+<p>Email manzilingizni yozing. Parolni yangilash havolasi yuboriladi.</p>
+<label for="e">Email</label><input id="e" name="e" type="email" required autocomplete="username">
+<p class="err" role="alert"></p><button class="btn">Havola yuborish</button>
+<p><a href="#login">← Kirishga qaytish</a></p></form>`;
+const pNewPass=async()=>!ME?'<div class="card"><p>Havola eskirgan yoki notoʻgʻri. <a href="#forgot">Qayta yuboring</a>.</p></div>'
+:`<form class="card" data-f="newpass" style="max-width:420px;margin:24px auto"><h1>Yangi parol</h1>
+<label for="p">Yangi parol (kamida 8 belgi)</label><input id="p" name="p" type="password" required minlength="8" autocomplete="new-password">
+<p class="err" role="alert"></p><button class="btn">Saqlash</button></form>`;
 
 async function pPanel(){
  if(!ME){location.hash="login";return ""}
@@ -137,15 +148,20 @@ ${ME?`<form data-f="cm" data-v="${x.id}" class="row"><input name="x" required mi
 const nav=()=>{$("#nav").innerHTML=ME?`<a href="#videos">Videolar</a><a href="#panel">Panel</a><button data-a="out">Chiqish</button>`:`<a href="#videos">Videolar</a><a href="#login">Kirish</a><a href="#register">Roʻyxatdan oʻtish</a>`};
 async function render(){
  await loadMe();nav();
- const h=location.hash.slice(1)||"home",R={home:pHome,login:pLogin,register:pReg,videos:pVideos,panel:pPanel};
- if(ME&&(h==="login"||h==="register"))return go("panel");
+ const h=location.hash.slice(1)||"home",R={home:pHome,login:pLogin,register:pReg,forgot:pForgot,newpass:pNewPass,videos:pVideos,panel:pPanel};
+ if(ME&&["login","register","forgot"].includes(h))return go("panel");
  try{$("#app").innerHTML=await(R[h]||pHome)()}catch(e){$("#app").innerHTML=`<p class="err">Xato: ${esc(e.message)}</p>`}
  window.scrollTo(0,0);
 }
 
 /* ===== Formalar va tugmalar ===== */
 const F={
- async login(f){const{error}=await SB.auth.signInWithPassword({email:f.e.value.trim(),password:f.p.value});if(error)return err("Email yoki parol notoʻgʻri (yoki email tasdiqlanmagan).");go("panel")},
+ async login(f){const{error}=await SB.auth.signInWithPassword({email:f.e.value.trim(),password:f.p.value});if(error)return err(/confirm/i.test(error.message)?"Email hali tasdiqlanmagan. Pochtangizdagi xatni tekshiring.":"Email yoki parol notoʻgʻri. Parolni unutgan boʻlsangiz, \"Parolni unutdingizmi?\" havolasidan tiklang.");go("panel")},
+ async forgot(f){
+  const{error}=await SB.auth.resetPasswordForEmail(f.e.value.trim(),{redirectTo:location.origin+location.pathname});
+  if(error)return err(error.message);
+  f.innerHTML='<h1>Xat yuborildi 📧</h1><p>Agar bu email roʻyxatdan oʻtgan boʻlsa, parolni yangilash havolasi yuborildi. Spam papkasini ham tekshiring.</p><p><a href="#login">Kirish</a></p>'},
+ async newpass(f){const{error}=await SB.auth.updateUser({password:f.p.value});if(error)return err(error.message);toast("Parol yangilandi ✓");go("panel")},
  async reg(f){
   const{data,error}=await SB.auth.signUp({email:f.e.value.trim(),password:f.p.value,options:{data:{full_name:f.fn.value.trim(),role:f.r.value}}});
   if(error)return err(error.message);
@@ -168,6 +184,7 @@ const ACT={
 document.addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(b&&ACT[b.dataset.a])ACT[b.dataset.a](b.dataset.v)});
 document.addEventListener("submit",e=>{e.preventDefault();const f=e.target;F[f.dataset.f]&&F[f.dataset.f](f)});
 addEventListener("hashchange",render);
+SB.auth.onAuthStateChange(ev=>{if(ev==="PASSWORD_RECOVERY")setTimeout(()=>go("newpass"),0)});
 render();
 </script>
 </body>
