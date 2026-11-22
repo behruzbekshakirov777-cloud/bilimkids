@@ -68,8 +68,9 @@ const pHome=async()=>`<section class="hero"><h1>BILIM KIDS</h1><h2>Bolaning bugu
 <p class="row">${ME?`<a class="btn" href="#panel">Panelga oʻtish</a>`:`<a class="btn" href="#login">Kirish</a><a class="btn x" href="#register">Roʻyxatdan oʻtish</a>`}<a class="btn x" href="#videos">Video darslar</a></p></section>`;
 
 const pLogin=async()=>`<form class="card" data-f="login" style="max-width:420px;margin:24px auto"><h1>Kirish</h1>
-<label for="e">Email</label><input id="e" name="e" type="email" required autocomplete="username">
+<label for="e">Email</label><input id="e" name="e" type="email" required autocomplete="username" autocapitalize="none" autocorrect="off" spellcheck="false">
 <label for="p">Parol</label><input id="p" name="p" type="password" required autocomplete="current-password">
+<label class="row" style="font-weight:400"><input type="checkbox" data-a="pwv" style="width:22px;min-height:22px"> Parolni koʻrsatish</label>
 <p class="err" role="alert"></p><button class="btn">Kirish</button>
 <p><a href="#forgot">Parolni unutdingizmi?</a></p>
 <p>Hisobingiz yoʻqmi? <a href="#register">Roʻyxatdan oʻting</a></p></form>`;
@@ -79,6 +80,7 @@ const pReg=async()=>`<form class="card" data-f="reg" style="max-width:420px;marg
 <label for="e">Email</label><input id="e" name="e" type="email" required autocomplete="username">
 <label for="r">Siz kimsiz?</label><select id="r" name="r"><option value="parent">Ota-ona</option><option value="teacher">Tarbiyachi</option></select>
 <label for="p">Parol (kamida 8 belgi)</label><input id="p" name="p" type="password" required minlength="8" autocomplete="new-password">
+<label class="row" style="font-weight:400"><input type="checkbox" data-a="pwv" style="width:22px;min-height:22px"> Parolni koʻrsatish</label>
 <p class="err" role="alert"></p><button class="btn">Roʻyxatdan oʻtish</button>
 <p>Hisobingiz bormi? <a href="#login">Kirish</a></p>
 <p style="color:var(--m);font-size:.9rem">Administrator hisobi oʻzi yaratilmaydi. Tarbiyachi va ota-onani administrator guruh va farzandga bogʻlaydi.</p></form>`;
@@ -156,7 +158,7 @@ async function render(){
 
 /* ===== Formalar va tugmalar ===== */
 const F={
- async login(f){const{error}=await SB.auth.signInWithPassword({email:f.e.value.trim(),password:f.p.value});if(error)return err(/confirm/i.test(error.message)?"Email hali tasdiqlanmagan. Pochtangizdagi xatni tekshiring.":"Email yoki parol notoʻgʻri. Parolni unutgan boʻlsangiz, \"Parolni unutdingizmi?\" havolasidan tiklang.");go("panel")},
+ async login(f){const{error}=await SB.auth.signInWithPassword({email:f.e.value.trim().toLowerCase(),password:f.p.value});if(error)return err(/confirm/i.test(error.message)?"Email hali tasdiqlanmagan. Pochtangizdagi xatni tekshiring.":"Email yoki parol notoʻgʻri. Parolni unutgan boʻlsangiz, \"Parolni unutdingizmi?\" havolasidan tiklang.");await loadMe();if(!ME)return err("Kirdingiz, lekin profil topilmadi. Administratorga murojaat qiling.");go("panel")},
  async forgot(f){
   const{error}=await SB.auth.resetPasswordForEmail(f.e.value.trim(),{redirectTo:location.origin+location.pathname});
   if(error)return err(error.message);
@@ -175,13 +177,14 @@ const F={
 };
 const ACT={
  async out(){await SB.auth.signOut();go("home")},
+ pwv(_,b){b.form.querySelectorAll("[name=p]").forEach(i=>i.type=b.checked?"text":"password")},
  async mark(v){const[id,s]=v.split(":");if(await run(SB.from("attendance").upsert({child_id:id,day:today(),status:s},{onConflict:"child_id,day"}),"Davomat saqlandi ✓"))render()},
  async dec(v){const[id,ok]=v.split(":");if(await run(SB.rpc("decide_request",{req:id,approve:ok==="1"}),"Bajarildi ✓"))render()},
  async rq(){if(await run(SB.from("admin_requests").insert({}),"Soʻrov yuborildi ✓"))render()},
  async delv(id){if(await run(SB.from("videos").delete().eq("id",id),"Video oʻchirildi"))render()},
  async delc(id){if(await run(SB.from("comments").delete().eq("id",id),"Fikr oʻchirildi"))render()}
 };
-document.addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(b&&ACT[b.dataset.a])ACT[b.dataset.a](b.dataset.v)});
+document.addEventListener("click",e=>{const b=e.target.closest("[data-a]");if(b&&ACT[b.dataset.a])ACT[b.dataset.a](b.dataset.v,b)});
 document.addEventListener("submit",e=>{e.preventDefault();const f=e.target;F[f.dataset.f]&&F[f.dataset.f](f)});
 addEventListener("hashchange",render);
 SB.auth.onAuthStateChange(ev=>{if(ev==="PASSWORD_RECOVERY")setTimeout(()=>go("newpass"),0)});
