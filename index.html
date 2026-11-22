@@ -104,13 +104,13 @@ async function pAdmin(){
  const q=t=>SB.from(t).select("*");
  const[g,c,p,r]=await Promise.all([q("groups"),q("children"),SB.from("profiles").select("id,full_name,role"),SB.from("admin_requests").select("id,user_id").eq("status","wait")]);
  const P=p.data||[],G=g.data||[],C=c.data||[],nm=id=>esc((P.find(x=>x.id===id)||{}).full_name||"—");
- const opt=(a,f)=>a.map(x=>`<option value="${x.id}">${esc(f(x))}</option>`).join("");
+ const opt=(a,f,sel)=>a.map(x=>`<option value="${x.id}"${x.id===sel?" selected":""}>${esc(f(x))}</option>`).join("");
  const nmf=x=>x.full_name||x.id.slice(0,6);
  return `<h1>Administrator paneli</h1>
 <div class="card"><h2>Yangi guruh</h2><form data-f="grp"><input name="n" placeholder="Guruh nomi" required minlength="2" maxlength="40"><input name="a" placeholder="Yosh (masalan: 4–5 yosh)"><select name="t"><option value="">Tarbiyachi tanlang</option>${opt(P.filter(x=>x.role==="teacher"),nmf)}</select><button class="btn">Qoʻshish</button></form></div>
 <div class="card"><h2>Yangi bola</h2><form data-f="kid"><input name="n" placeholder="Bolaning ismi" required maxlength="40"><select name="g"><option value="">Guruh tanlang</option>${opt(G,x=>x.name)}</select><select name="p"><option value="">Ota-onani tanlang</option>${opt(P.filter(x=>x.role==="parent"),nmf)}</select><button class="btn">Qoʻshish</button></form></div>
-<div class="card"><h2>Guruhlar (${G.length})</h2>${G.map(x=>`<p>${esc(x.name)} · ${esc(x.age_range)} · ${nm(x.teacher_id)}</p>`).join("")||"<p>Hali yoʻq.</p>"}</div>
-<div class="card"><h2>Bolalar (${C.length})</h2>${C.map(x=>`<p>${esc(x.name)} · ${esc((G.find(y=>y.id===x.group_id)||{}).name||"guruhsiz")} · ota-ona: ${nm(x.parent_id)}</p>`).join("")||"<p>Hali yoʻq.</p>"}</div>
+<div class="card"><h2>Guruhlar (${G.length})</h2>${G.map(x=>`<form data-f="gt" data-v="${x.id}" class="row" style="margin:8px 0"><b style="flex:1;min-width:130px">${esc(x.name)} <span class="tag">${esc(x.age_range)}</span></b><select name="t" aria-label="Tarbiyachi" style="flex:1;margin:0"><option value="">— tarbiyachi yoʻq —</option>${opt(P.filter(y=>y.role==="teacher"),nmf,x.teacher_id)}</select><button class="btn">Saqlash</button></form>`).join("")||"<p>Hali yoʻq.</p>"}</div>
+<div class="card"><h2>Bolalar (${C.length})</h2>${C.map(x=>`<form data-f="ck" data-v="${x.id}" style="border-top:1px solid var(--l);padding-top:8px;margin-top:8px"><b>${esc(x.name)}</b><select name="g" aria-label="Guruh"><option value="">— guruhsiz —</option>${opt(G,y=>y.name,x.group_id)}</select><select name="p" aria-label="Ota-ona"><option value="">— ota-ona yoʻq —</option>${opt(P.filter(y=>y.role==="parent"),nmf,x.parent_id)}</select><button class="btn">Saqlash</button></form>`).join("")||"<p>Hali yoʻq.</p>"}</div>
 <div class="card"><h2>Admin boʻlish soʻrovlari</h2>${(r.data||[]).map(x=>`<p class="row">${nm(x.user_id)} <button class="btn g" data-a="dec" data-v="${x.id}:1">Rozi</button><button class="btn x" data-a="dec" data-v="${x.id}:0">Rad etish</button></p>`).join("")||"<p>Yangi soʻrov yoʻq.</p>"}</div>`;
 }
 
@@ -171,6 +171,8 @@ const F={
   go("panel")},
  async grp(f){if(await run(SB.from("groups").insert({name:f.n.value.trim(),age_range:f.a.value.trim(),teacher_id:f.t.value||null}),"Guruh qoʻshildi ✓"))render()},
  async kid(f){if(await run(SB.from("children").insert({name:f.n.value.trim(),group_id:f.g.value||null,parent_id:f.p.value||null}),"Bola qoʻshildi ✓"))render()},
+ async gt(f){await run(SB.from("groups").update({teacher_id:f.t.value||null}).eq("id",f.dataset.v),"Tarbiyachi biriktirildi ✓")},
+ async ck(f){await run(SB.from("children").update({group_id:f.g.value||null,parent_id:f.p.value||null}).eq("id",f.dataset.v),"Saqlandi ✓")},
  async note(f){await run(SB.from("children").update({note:f.x.value.trim()}).eq("id",f.dataset.v),"Izoh saqlandi ✓")},
  async vid(f){if(await run(SB.from("videos").insert({title:f.t.value.trim(),url:f.u.value.trim(),description:f.d.value.trim()}),"Video qoʻshildi ✓"))render()},
  async cm(f){if(await run(SB.from("comments").insert({video_id:f.dataset.v,body:f.x.value.trim()}),"Fikr yuborildi ✓"))render()}
